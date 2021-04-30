@@ -60,12 +60,12 @@ func New(config *azclients.ClientConfig) *Client {
 	armClient := armclient.New(authorizer, baseURI, config.UserAgent, APIVersion, config.Location, config.Backoff)
 	rateLimiterReader, rateLimiterWriter := azclients.NewRateLimiter(config.RateLimitConfig)
 
-	klog.V(2).Infof("Azure SnapshotClient (read ops) using rate limit config: QPS=%g, bucket=%d",
-		config.RateLimitConfig.CloudProviderRateLimitQPS,
-		config.RateLimitConfig.CloudProviderRateLimitBucket)
-	klog.V(2).Infof("Azure SnapshotClient (write ops) using rate limit config: QPS=%g, bucket=%d",
-		config.RateLimitConfig.CloudProviderRateLimitQPSWrite,
-		config.RateLimitConfig.CloudProviderRateLimitBucketWrite)
+	klog.V(2).InfoS("Azure SnapshotClient (read ops) using rate limit config",
+		"QPS",	config.RateLimitConfig.CloudProviderRateLimitQPS,
+		"bucket", config.RateLimitConfig.CloudProviderRateLimitBucket)
+	klog.V(2).InfoS("Azure SnapshotClient (write ops) using rate limit config",
+		"QPS",config.RateLimitConfig.CloudProviderRateLimitQPSWrite,
+		"bucket", config.RateLimitConfig.CloudProviderRateLimitBucketWrite)
 
 	client := &Client{
 		armClient:         armClient,
@@ -121,7 +121,7 @@ func (c *Client) getSnapshot(ctx context.Context, resourceGroupName string, snap
 	response, rerr := c.armClient.GetResource(ctx, resourceID, "")
 	defer c.armClient.CloseResponse(ctx, response)
 	if rerr != nil {
-		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "snapshot.get.request", resourceID, rerr.Error())
+		klog.V(5).InfoS("Received error in snapshot.get.request", "resourceID", resourceID, "error", rerr.Error())
 		return result, rerr
 	}
 
@@ -130,7 +130,7 @@ func (c *Client) getSnapshot(ctx context.Context, resourceGroupName string, snap
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result))
 	if err != nil {
-		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "snapshot.get.respond", resourceID, err)
+		klog.V(5).InfoS("Received error in snapshot.get.respond", "resourceID", resourceID, "error", err)
 		return result, retry.GetError(response, err)
 	}
 
@@ -224,14 +224,14 @@ func (c *Client) createOrUpdateSnapshot(ctx context.Context, resourceGroupName s
 	response, rerr := c.armClient.PutResource(ctx, resourceID, snapshot)
 	defer c.armClient.CloseResponse(ctx, response)
 	if rerr != nil {
-		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "snapshot.put.request", resourceID, rerr.Error())
+		klog.V(5).InfoS("Received error in snapshot.put.request", "resourceID", resourceID, "error", rerr.Error())
 		return rerr
 	}
 
 	if response != nil && response.StatusCode != http.StatusNoContent {
 		_, rerr = c.createOrUpdateResponder(response)
 		if rerr != nil {
-			klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "snapshot.put.respond", resourceID, rerr.Error())
+			klog.V(5).InfoS("Received error insnapshot.put.respond", "resourceID", "snapshot.put.respond", resourceID, "error", rerr.Error())
 			return rerr
 		}
 	}
@@ -292,14 +292,14 @@ func (c *Client) listSnapshotsByResourceGroup(ctx context.Context, resourceGroup
 	resp, rerr := c.armClient.GetResource(ctx, resourceID, "")
 	defer c.armClient.CloseResponse(ctx, resp)
 	if rerr != nil {
-		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "snapshot.list.request", resourceID, rerr.Error())
+		klog.V(5).InfoS("Received error in snapshot.list.request", "resourceID", resourceID, "error", rerr.Error())
 		return result, rerr
 	}
 
 	var err error
 	page.sl, err = c.listResponder(resp)
 	if err != nil {
-		klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "snapshot.list.respond", resourceID, err)
+		klog.V(5).InfoS("Received error in snapshot.list.respond","resourceID", resourceID, "error", err)
 		return result, retry.GetError(resp, err)
 	}
 
@@ -312,7 +312,7 @@ func (c *Client) listSnapshotsByResourceGroup(ctx context.Context, resourceGroup
 		}
 
 		if err = page.NextWithContext(ctx); err != nil {
-			klog.V(5).Infof("Received error in %s: resourceID: %s, error: %s", "snapshot.list.next", resourceID, err)
+			klog.V(5).Infof("Received error in snapshot.list.next", "resourceID", resourceID, "error", err)
 			return result, retry.GetError(page.Response().Response.Response, err)
 		}
 	}
